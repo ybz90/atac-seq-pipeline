@@ -1,0 +1,10 @@
+*.DS_Store
+
+# Ignore checkpoints created
+*.ipynb_checkpoints
+
+# Ignore compiled Python files
+*.pyc
+
+# Ignore R files
+*.Rhistory
