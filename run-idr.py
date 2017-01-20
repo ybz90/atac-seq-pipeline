@@ -1,18 +1,48 @@
 import numpy as np
 import os
 import subprocess
+import sys
 from multiprocessing import Pool, Queue, Process, Manager, cpu_count
 
 # Set global parameters
 
-# Chromosome sizes for clipping and bigwig generation
-mm_chr_sz = '~/annotation/chromosomes/mm10/mm10.chrom.sizes'
+if len(sys.argv) == 4:
 
-# Specify experiment condition
-# location further processing and analysis for experiment
-expt_prefix = 'EXPT_PREFIX'
-pipe_out_loc = 'EXPT_OUT_LOC'
+    # Chromosome sizes for clipping and bigwig generation
+    mm_chr_sz = sys.argv[3]
 
+    # Specify experiment condition
+    # location further processing and analysis for experiment
+    expt_prefix = sys.argv[1]
+    pipe_out_loc = sys.argv[2]
+
+# If single argument '-m', use the following manually input
+# parameters
+#elif len(sys.argv) == 2 and sys.argv[-1] == '-m':
+elif len(sys.argv) > 1 and sys.argv[1] == '-m':
+
+    # Chromosome sizes for clipping and bigwig generation
+    mm_chr_sz = '~/annotation/chromosomes/mm10/mm10.chrom.sizes'
+
+    # Specify experiment condition
+    # location further processing and analysis for experiment
+    expt_prefix = ''
+    pipe_out_loc = ''
+
+# If no args or incorrect number input, break and print help
+else:
+    print 'Error: Missing arguments. Exiting.\n\n' + \
+          'Usage: python run-idr.py [options] <expt prefix> <output dir> <genome sz>\n\n' + \
+          'Options: \n' + \
+          '  -m   : Use parameters manually specified in script.\n' + \
+          '         This option will ignore following arguments.'
+    exit()
+
+# Print verbose params
+print 'Running script: \'run-idr.py\'. \n\n' + \
+      '- Experiment prefix      : %s\n' % expt_prefix + \
+      '- Peak call output dir   : %s\n' % pipe_out_loc + \
+      '- Genome size            : %s\n' % mm_chr_sz
 
 
 '''
