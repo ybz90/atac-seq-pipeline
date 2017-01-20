@@ -1,2 +1,2 @@
 # atac-seq-pipeline
-ATAC-seq Processing Pipeline for Ren Lab
+ATAC-seq analysis pipeline
