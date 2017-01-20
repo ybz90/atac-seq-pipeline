@@ -17,6 +17,13 @@ fastq_prefix = {
 }
 
 
+
+def pipe(cmd_list):
+    return ' | '.join(cmd_list)
+
+
+
+
 '''
 ################################
 # ALIGN FASTQ READS WITH BOWTIE2

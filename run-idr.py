@@ -309,8 +309,8 @@ ratio_results = 'Rescue ratio: %s, Self-Consistency Ratio: %s' % (
 
 # Save results output to IDR folder
 print('\n'.join([opt_result, test_result, ratio_results]))
-with open(os.path.expanduser('%s/IDR/IDR_results.txt' % pipe_out_loc), 'wb') as idr_results:
-    idr_results.write('\n'.join(['n_TR, n_PR, n_R1, n_R2', '%s, %s, %s, %s' % (
+with open(os.path.expanduser('%s/IDR/IDR_results.txt' % pipe_out_loc), 'w') as idr_results:
+    idr_results.write('\n'.join(['n_TR, n_PR, n_R1, n_R2', '%d, %d, %d, %d' % (
         n_TR, n_PR, n_R1, n_R2), opt_result, test_result, ratio_results]))
 
 
