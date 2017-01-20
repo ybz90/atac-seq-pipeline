@@ -1,21 +1,55 @@
 import numpy as np
 import os
 import subprocess
+import sys
 from multiprocessing import Pool, Queue, Process, Manager, cpu_count
 
 # Set global parameters
 
-# Chromosome sizes for clipping and bigwig generation
-mm_chr_sz = '~/annotation/chromosomes/mm10/mm10.chrom.sizes'
+if len(sys.argv) == 5:
 
-# Input location for nodup bam alignments
-nodup_bam_loc = 'NODUP_BAM_LOC'
+    # Chromosome sizes for clipping and bigwig generation
+    mm_chr_sz = sys.argv[4]
 
-# Specify experiment condition
-# location further processing and analysis for experiment
-expt_prefix = 'EXPT_PREFIX'
-pipe_out_loc = 'EXPT_OUT_LOC'
+    # Input location for nodup bam alignments
+    nodup_bam_loc = sys.argv[1]
 
+    # Specify experiment condition
+    # location further processing and analysis for experiment
+    expt_prefix = sys.argv[2]
+    pipe_out_loc = sys.argv[3]
+
+# If single argument '-m', use the following manually input
+# parameters
+#elif len(sys.argv) == 2 and sys.argv[-1] == '-m':
+elif len(sys.argv) > 1 and sys.argv[1] == '-m':
+
+    # Chromosome sizes for clipping and bigwig generation
+    mm_chr_sz = '~/annotation/chromosomes/mm10/mm10.chrom.sizes'
+
+    # Input location for nodup bam alignments
+    nodup_bam_loc = ''
+
+    # Specify experiment condition
+    # location further processing and analysis for experiment
+    expt_prefix = ''
+    pipe_out_loc = ''
+
+# If no args or incorrect number input, break and print help
+else:
+    print 'Error: Missing arguments. Exiting.\n\n' + \
+          'Usage: python call-atac.py [options] <input dir> <expt prefix> <output dir> <genome sz>\n\n' + \
+          'Options: \n' + \
+          '  -m   : Use parameters manually specified in script.\n' + \
+          '         This option will ignore following arguments.'
+    exit()
+
+# Print verbose params
+print 'Running script: \'call-atac.py\'. \n\n' + \
+      '- Experiment prefix      : %s\n' % expt_prefix + \
+      '- Input alignment dir    : %s\n' % nodup_bam_loc + \
+      '- Peak call output dir   : %s\n' % pipe_out_loc + \
+      '- Genome size            : %s\n' % mm_chr_sz
 
 
 '''
@@ -24,7 +58,6 @@ pipe_out_loc = 'EXPT_OUT_LOC'
 #################################
 '''
 
-#
 def pipe(cmd_list):
     return ' | '.join(cmd_list)
 
@@ -34,10 +67,9 @@ def run_bash(command):
     print command
     #subprocess.call(command, shell=True)
     # Set analysis output directory in run_bash before every command
-    subprocess.call('cd %s; %s' %(pipe_out_loc, command), shell=True)
+    subprocess.call('cd %s; %s' % (pipe_out_loc, command), shell=True)
     return None
 
-#
 def get_numpeaks(file_loc):
     with open(file_loc) as in_file:
         for num, line in enumerate(in_file):
@@ -47,7 +79,7 @@ def get_numpeaks(file_loc):
 # Remove control_lambda and treat_pileups, if no other bdgcmp operations
 # will be performed
 def remove_bdg(outdirs):
-    cmd_rm = ['rm -f %s/*.bdg ' %outdir for outdir in outdirs]
+    cmd_rm = ['rm -f %s/*.bdg ' % outdir for outdir in outdirs]
     return '; '.join(cmd_rm)
 
 # Remove mitochondrial reads and adjust reads for Tn5 insertion
@@ -89,11 +121,11 @@ def cmd_flagstat(expt_prefix):
 def cmd_readcounts(flagstat_loc):
     # Load flagstat counts; if pooled, add them together for scale_factor
     counts = {}
-    for curr_no in [1,2]:
+    for curr_no in [1, 2]:
         with open('%s/flagstat%d.txt' % (flagstat_loc, curr_no)) as flagstat:
             num_mapped = flagstat.readlines()[4].split(' ')[0]
         num_scaled = int(num_mapped) / 1000000.
-        #print num_mapped, num_scaled
+        # print num_mapped, num_scaled
         counts[curr_no] = num_scaled
     # for pooled obvi, will be R1 + R2
     return counts
@@ -102,7 +134,7 @@ def cmd_readcounts(flagstat_loc):
 def cmd_callpeak(prefix, t_files, outdir, p_val, shift_val, ext_val):
 
     command = 'macs2 callpeak ' + \
-        '-t %s ' %t_files + \
+        '-t %s ' % t_files + \
         '-f BED -n %s ' % prefix + \
         '--outdir %s ' % outdir + \
         '-g mm -p %s --nomodel --shift -%s --extsize %s ' % (p_val, shift_val, ext_val) + \
@@ -114,19 +146,20 @@ def cmd_callpeak(prefix, t_files, outdir, p_val, shift_val, ext_val):
 def cmd_FE(mm_chr_sz, outdir, prefix):
 
     cmd_bdgcmp = 'macs2 bdgcmp ' + \
-            '-t %s/%s_treat_pileup.bdg ' %(outdir, prefix) + \
-            '-c %s/%s_control_lambda.bdg ' %(outdir, prefix) + \
-            '--outdir %s -o %s.FE.bdg ' % (outdir, prefix) + \
-            '-m FE'
-    #print cmd_bdgcmp
+        '-t %s/%s_treat_pileup.bdg ' % (outdir, prefix) + \
+        '-c %s/%s_control_lambda.bdg ' % (outdir, prefix) + \
+        '--outdir %s -o %s.FE.bdg ' % (outdir, prefix) + \
+        '-m FE'
+    # print cmd_bdgcmp
     cmd_trimsort = pipe([
         'sort -k1,1 -k2,2n %s/%s.FE.bdg' % (outdir, prefix),
         'slopBed -i stdin -g %s -b 0' % mm_chr_sz,
         'bedClip stdin %s %s/%s.FE.trim.bdg ' % (mm_chr_sz, outdir, prefix)
     ])
-    #print cmd_trimsort
-    cmd_bw = 'bedGraphToBigWig %s/%s.FE.trim.bdg %s %s/%s.FE.bw ' % (outdir, prefix, mm_chr_sz, outdir, prefix)
-    #print cmd_bw
+    # print cmd_trimsort
+    cmd_bw = 'bedGraphToBigWig %s/%s.FE.trim.bdg %s %s/%s.FE.bw ' % (
+        outdir, prefix, mm_chr_sz, outdir, prefix)
+    # print cmd_bw
 
     return '; '.join([cmd_bdgcmp, cmd_trimsort, cmd_bw])
 
@@ -134,19 +167,20 @@ def cmd_FE(mm_chr_sz, outdir, prefix):
 def cmd_ppois(mm_chr_sz, outdir, prefix, scale_factor):
 
     cmd_bdgcmp = 'macs2 bdgcmp ' + \
-            '-t %s/%s_treat_pileup.bdg ' %(outdir, prefix) + \
-            '-c %s/%s_control_lambda.bdg ' %(outdir, prefix) + \
-            '--outdir %s -o %s.pval.bdg ' % (outdir, prefix) + \
-            '-m ppois -S %s' % str(scale_factor)
-    #print cmd_bdgcmp
+        '-t %s/%s_treat_pileup.bdg ' % (outdir, prefix) + \
+        '-c %s/%s_control_lambda.bdg ' % (outdir, prefix) + \
+        '--outdir %s -o %s.pval.bdg ' % (outdir, prefix) + \
+        '-m ppois -S %s' % str(scale_factor)
+    # print cmd_bdgcmp
     cmd_trimsort = pipe([
         'sort -k1,1 -k2,2n %s/%s.pval.bdg' % (outdir, prefix),
         'slopBed -i stdin -g %s -b 0' % mm_chr_sz,
         'bedClip stdin %s %s/%s.pval.trim.bdg ' % (mm_chr_sz, outdir, prefix)
     ])
-    #print cmd_trimsort
-    cmd_bw = 'bedGraphToBigWig %s/%s.pval.trim.bdg %s %s/%s.pval.bw ' % (outdir, prefix, mm_chr_sz, outdir, prefix)
-    #print cmd_bw
+    # print cmd_trimsort
+    cmd_bw = 'bedGraphToBigWig %s/%s.pval.trim.bdg %s %s/%s.pval.bw ' % (
+        outdir, prefix, mm_chr_sz, outdir, prefix)
+    # print cmd_bw
 
     return '; '.join([cmd_bdgcmp, cmd_trimsort, cmd_bw])
 
@@ -261,5 +295,5 @@ if __name__ == '__main__':
 
 
 # Remove temporary files e.g. bedgraphs
-print remove_bdg(['R1','R2','pooled', 'pseudoreps'])
+print remove_bdg(['R1', 'R2', 'pooled', 'pseudoreps'])
 # run_bash(remove_bdg(['R1','R2','pooled', 'pseudoreps']))

@@ -17,11 +17,8 @@ fastq_prefix = {
 }
 
 
-
 def pipe(cmd_list):
     return ' | '.join(cmd_list)
-
-
 
 
 '''
@@ -46,7 +43,8 @@ for curr_bam in fastq_prefix.keys():
                        '-t -X2000 --no-mixed --no-discordant -x %s ' % mm10_bw2_index +
                        '-1 %s/%s_R1.fastq.bz2 ' % (fastq_loc, curr_fastq) +
                        '-2 %s/%s_R2.fastq.bz2 ' % (fastq_loc, curr_fastq),
-                       'samtools view -bS - > %s/%s.bam ' % (nodup_bam_loc, curr_bam)
+                       'samtools view -bS - > %s/%s.bam ' % (
+                           nodup_bam_loc, curr_bam)
                        ])
     print cmd_bowtie
     subprocess.call(cmd_bowtie, shell=True)
