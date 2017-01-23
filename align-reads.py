@@ -60,7 +60,7 @@ for curr_bam in fastq_prefix.keys():
         'samtools rmdup - %s/%s_sorted_nodup.bam' % (
             nodup_bam_loc, curr_bam)
     ])
-    cmd_index = 'samtools_index %s/%s_sorted_nodup.bam %s/%s_sorted_nodup.bai' % (
+    cmd_index = 'samtools index %s/%s_sorted_nodup.bam %s/%s_sorted_nodup.bai' % (
         nodup_bam_loc, curr_bam, nodup_bam_loc, curr_bam)
     print '; '.join([cmd_rmdup, cmd_index])
     subprocess.call('; '.join([cmd_rmdup, cmd_index]), shell=True)
