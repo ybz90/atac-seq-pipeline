@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import subprocess
 import sys
@@ -9,7 +8,7 @@ from multiprocessing import Pool, Queue, Process, Manager, cpu_count
 if len(sys.argv) == 5:
 
     # Chromosome sizes for clipping and bigwig generation
-    mm_chr_sz = sys.argv[4]
+    chr_sz = 'chr_sz/%s.chrom.sizes' % sys.argv[4]
 
     # Input location for nodup bam alignments
     nodup_bam_loc = sys.argv[1]
@@ -25,7 +24,7 @@ if len(sys.argv) == 5:
 elif len(sys.argv) > 1 and sys.argv[1] == '-m':
 
     # Chromosome sizes for clipping and bigwig generation
-    mm_chr_sz = '~/annotation/chromosomes/mm10/mm10.chrom.sizes'
+    chr_sz = ''
 
     # Input location for nodup bam alignments
     nodup_bam_loc = ''
@@ -38,7 +37,7 @@ elif len(sys.argv) > 1 and sys.argv[1] == '-m':
 # If no args or incorrect number input, break and print help
 else:
     print 'Error: Missing arguments. Exiting.\n\n' + \
-          'Usage: python call-atac.py [options] <input dir> <expt prefix> <output dir> <genome sz>\n\n' + \
+          'Usage: python call-atac.py [options] <input dir> <expt prefix> <output dir> <genome assembly>\n\n' + \
           'Options: \n' + \
           '  -m   : Use parameters manually specified in script.\n' + \
           '         This option will ignore following arguments.'
@@ -49,7 +48,7 @@ print 'Running script: \'call-atac.py\'. \n\n' + \
       '- Experiment prefix      : %s\n' % expt_prefix + \
       '- Input alignment dir    : %s\n' % nodup_bam_loc + \
       '- Peak call output dir   : %s\n' % pipe_out_loc + \
-      '- Genome size            : %s\n' % mm_chr_sz
+      '- Genome size file       : %s\n' % chr_sz
 
 
 '''
@@ -143,7 +142,7 @@ def cmd_callpeak(prefix, t_files, outdir, p_val, shift_val, ext_val):
     return command
 
 # Fold-enrichment
-def cmd_FE(mm_chr_sz, outdir, prefix):
+def cmd_FE(chr_sz, outdir, prefix):
 
     cmd_bdgcmp = 'macs2 bdgcmp ' + \
         '-t %s/%s_treat_pileup.bdg ' % (outdir, prefix) + \
@@ -153,18 +152,18 @@ def cmd_FE(mm_chr_sz, outdir, prefix):
     # print cmd_bdgcmp
     cmd_trimsort = pipe([
         'sort -k1,1 -k2,2n %s/%s.FE.bdg' % (outdir, prefix),
-        'slopBed -i stdin -g %s -b 0' % mm_chr_sz,
-        'bedClip stdin %s %s/%s.FE.trim.bdg ' % (mm_chr_sz, outdir, prefix)
+        'slopBed -i stdin -g %s -b 0' % chr_sz,
+        'bedClip stdin %s %s/%s.FE.trim.bdg ' % (chr_sz, outdir, prefix)
     ])
     # print cmd_trimsort
     cmd_bw = 'bedGraphToBigWig %s/%s.FE.trim.bdg %s %s/%s.FE.bw ' % (
-        outdir, prefix, mm_chr_sz, outdir, prefix)
+        outdir, prefix, chr_sz, outdir, prefix)
     # print cmd_bw
 
     return '; '.join([cmd_bdgcmp, cmd_trimsort, cmd_bw])
 
 # P-value
-def cmd_ppois(mm_chr_sz, outdir, prefix, scale_factor):
+def cmd_ppois(chr_sz, outdir, prefix, scale_factor):
 
     cmd_bdgcmp = 'macs2 bdgcmp ' + \
         '-t %s/%s_treat_pileup.bdg ' % (outdir, prefix) + \
@@ -174,12 +173,12 @@ def cmd_ppois(mm_chr_sz, outdir, prefix, scale_factor):
     # print cmd_bdgcmp
     cmd_trimsort = pipe([
         'sort -k1,1 -k2,2n %s/%s.pval.bdg' % (outdir, prefix),
-        'slopBed -i stdin -g %s -b 0' % mm_chr_sz,
-        'bedClip stdin %s %s/%s.pval.trim.bdg ' % (mm_chr_sz, outdir, prefix)
+        'slopBed -i stdin -g %s -b 0' % chr_sz,
+        'bedClip stdin %s %s/%s.pval.trim.bdg ' % (chr_sz, outdir, prefix)
     ])
     # print cmd_trimsort
     cmd_bw = 'bedGraphToBigWig %s/%s.pval.trim.bdg %s %s/%s.pval.bw ' % (
-        outdir, prefix, mm_chr_sz, outdir, prefix)
+        outdir, prefix, chr_sz, outdir, prefix)
     # print cmd_bw
 
     return '; '.join([cmd_bdgcmp, cmd_trimsort, cmd_bw])
@@ -259,9 +258,9 @@ then convert bedgraph to bigWig. Delete the intermediate files.
 '''
 
 # Generate FE signal tracks
-FE1 = cmd_FE(mm_chr_sz, 'R1', '%s.%d' % (expt_prefix, 1))
-FE2 = cmd_FE(mm_chr_sz, 'R2', '%s.%d' % (expt_prefix, 2))
-FEp = cmd_FE(mm_chr_sz, 'pooled', '%s.%s' % (expt_prefix, 'pooled'))
+FE1 = cmd_FE(chr_sz, 'R1', '%s.%d' % (expt_prefix, 1))
+FE2 = cmd_FE(chr_sz, 'R2', '%s.%d' % (expt_prefix, 2))
+FEp = cmd_FE(chr_sz, 'pooled', '%s.%s' % (expt_prefix, 'pooled'))
 # print '\n'.join([FE1, FE2, FEp]) + '\n'
 
 if __name__ == '__main__':
@@ -282,9 +281,9 @@ in the compressed BED file; zcat * | wc -l)
 '''
 
 # Generate p-value signal tracks
-pv1 = cmd_ppois(mm_chr_sz, 'R1', '%s.%d' % (expt_prefix, 1), counts[1])
-pv2 = cmd_ppois(mm_chr_sz, 'R2', '%s.%d' % (expt_prefix, 2), counts[2])
-pvp = cmd_ppois(mm_chr_sz, 'pooled', '%s.%s' %
+pv1 = cmd_ppois(chr_sz, 'R1', '%s.%d' % (expt_prefix, 1), counts[1])
+pv2 = cmd_ppois(chr_sz, 'R2', '%s.%d' % (expt_prefix, 2), counts[2])
+pvp = cmd_ppois(chr_sz, 'pooled', '%s.%s' %
                 (expt_prefix, 'pooled'), counts[1] + counts[2])
 # print '\n'.join([pv1, pv2, pvp]) + '\n'
 
